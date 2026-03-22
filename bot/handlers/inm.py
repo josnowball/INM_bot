@@ -1,5 +1,5 @@
 """
-INM appointment booking conversation flow via Telegram.
+INM appointment booking conversation — trilingual (EN/ZH/ES).
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,166 +8,130 @@ from telegram.ext import (
     ConversationHandler,
     CommandHandler,
     CallbackQueryHandler,
-    MessageHandler,
-    filters,
 )
 
-# Conversation states
+from .i18n import (
+    t, get_lang, proc_name,
+    INM_PROCEDURES, INM_OFFICES,
+)
+
 SELECT_PROCEDURE, SELECT_OFFICE, CONFIRM = range(3)
 
-INM_PROCEDURES = {
-    "residencia_temporal": "Residencia Temporal",
-    "residencia_permanente": "Residencia Permanente",
-    "cambio_condicion": "Cambio de Condición",
-    "renovacion_residencia": "Renovación de Residencia",
-    "permiso_salida_regreso": "Permiso de Salida y Regreso",
-    "regularizacion": "Regularización Migratoria",
-}
 
-INM_OFFICES = {
-    "cdmx_polanco": "CDMX — Polanco",
-    "cdmx_centro": "CDMX — Centro",
-    "guadalajara": "Guadalajara",
-    "monterrey": "Monterrey",
-    "cancun": "Cancún",
-    "merida": "Mérida",
-    "puebla": "Puebla",
-    "tijuana": "Tijuana",
-    "queretaro": "Querétaro",
-    "playa_del_carmen": "Playa del Carmen",
-    "san_miguel_allende": "San Miguel de Allende",
-    "puerto_vallarta": "Puerto Vallarta",
-}
-
-
-async def inm_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Entry point — show procedure selection."""
+def _procedure_keyboard(lang: str):
+    """Build procedure selection keyboard."""
     keyboard = []
     row = []
-    for key, name in INM_PROCEDURES.items():
-        row.append(InlineKeyboardButton(name, callback_data=f"inm_proc_{key}"))
+    for key in INM_PROCEDURES:
+        label = proc_name(INM_PROCEDURES, key, lang)
+        row.append(InlineKeyboardButton(label, callback_data=f"inm_proc_{key}"))
         if len(row) == 2:
             keyboard.append(row)
             row = []
     if row:
         keyboard.append(row)
+    keyboard.append([InlineKeyboardButton(t("btn_cancel", lang), callback_data="inm_cancel")])
+    return InlineKeyboardMarkup(keyboard)
 
-    keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="inm_cancel")])
 
-    text = (
-        "📋 *INM Appointment Booking*\n\n"
-        "Select the type of procedure you need:"
-    )
+def _office_keyboard(lang: str):
+    """Build office selection keyboard."""
+    keyboard = []
+    row = []
+    for key in INM_OFFICES:
+        label = proc_name(INM_OFFICES, key, lang)
+        row.append(InlineKeyboardButton(label, callback_data=f"inm_office_{key}"))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    keyboard.append([InlineKeyboardButton(t("btn_cancel", lang), callback_data="inm_cancel")])
+    return InlineKeyboardMarkup(keyboard)
+
+
+async def inm_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = get_lang(context)
+    text = t("inm_title", lang)
+    kb = _procedure_keyboard(lang)
 
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
-            text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
     else:
-        await update.message.reply_text(
-            text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
 
     return SELECT_PROCEDURE
 
 
 async def select_procedure(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """User selected a procedure — now pick office."""
     query = update.callback_query
     await query.answer()
+    lang = get_lang(context)
 
     procedure_key = query.data.replace("inm_proc_", "")
     context.user_data["inm_procedure"] = procedure_key
 
-    keyboard = []
-    row = []
-    for key, name in INM_OFFICES.items():
-        row.append(InlineKeyboardButton(name, callback_data=f"inm_office_{key}"))
-        if len(row) == 2:
-            keyboard.append(row)
-            row = []
-    if row:
-        keyboard.append(row)
+    name = proc_name(INM_PROCEDURES, procedure_key, lang)
+    text = f"📋 *{name}*\n\n{t('inm_select_office', lang)}"
 
-    keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="inm_cancel")])
-
-    proc_name = INM_PROCEDURES.get(procedure_key, procedure_key)
     await query.edit_message_text(
-        f"📋 *{proc_name}*\n\nSelect your preferred INM office:",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        text, parse_mode="Markdown", reply_markup=_office_keyboard(lang),
     )
     return SELECT_OFFICE
 
 
 async def select_office(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """User selected office — show confirmation."""
     query = update.callback_query
     await query.answer()
+    lang = get_lang(context)
 
     office_key = query.data.replace("inm_office_", "")
     context.user_data["inm_office"] = office_key
 
-    proc_name = INM_PROCEDURES.get(context.user_data["inm_procedure"], "")
-    office_name = INM_OFFICES.get(office_key, "")
+    procedure = proc_name(INM_PROCEDURES, context.user_data["inm_procedure"], lang)
+    office = proc_name(INM_OFFICES, office_key, lang)
 
-    keyboard = [
+    keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("✅ Book Now", callback_data="inm_confirm"),
-            InlineKeyboardButton("❌ Cancel", callback_data="inm_cancel"),
+            InlineKeyboardButton(t("btn_book_now", lang), callback_data="inm_confirm"),
+            InlineKeyboardButton(t("btn_cancel", lang), callback_data="inm_cancel"),
         ]
-    ]
+    ])
 
-    await query.edit_message_text(
-        f"📋 *Confirm INM Appointment*\n\n"
-        f"*Procedure:* {proc_name}\n"
-        f"*Office:* {office_name}\n\n"
-        f"We'll use your saved profile data to fill out the solicitud.\n"
-        f"Make sure your profile is complete before proceeding.\n\n"
-        f"Ready to book?",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-    )
+    text = t("inm_confirm", lang).format(procedure=procedure, office=office)
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
     return CONFIRM
 
 
 async def confirm_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """User confirmed — initiate booking via API."""
     query = update.callback_query
     await query.answer()
+    lang = get_lang(context)
 
-    proc = context.user_data.get("inm_procedure")
-    office = context.user_data.get("inm_office")
+    proc_key = context.user_data.get("inm_procedure")
+    office_key = context.user_data.get("inm_office")
+    procedure = proc_name(INM_PROCEDURES, proc_key, lang)
+    office = proc_name(INM_OFFICES, office_key, lang)
 
-    await query.edit_message_text(
-        f"⏳ *Booking in progress...*\n\n"
-        f"We're filling out your solicitud and looking for available slots.\n"
-        f"This may take 1-2 minutes. We'll notify you when done.",
-        parse_mode="Markdown",
-    )
+    await query.edit_message_text(t("inm_booking_progress", lang), parse_mode="Markdown")
 
-    # TODO: Call the FastAPI booking endpoint here
-    # For now, send a placeholder response
+    # TODO: Call the FastAPI booking endpoint via httpx
     await context.bot.send_message(
         chat_id=query.message.chat_id,
-        text=(
-            "📋 *Booking submitted!*\n\n"
-            f"*Procedure:* {INM_PROCEDURES.get(proc, proc)}\n"
-            f"*Office:* {INM_OFFICES.get(office, office)}\n"
-            f"*Status:* Pending\n\n"
-            "We'll send you a confirmation once the appointment is secured.\n"
-            "Check /appointments to see the status."
-        ),
+        text=t("inm_booking_done", lang).format(procedure=procedure, office=office),
         parse_mode="Markdown",
     )
     return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text("Booking cancelled. Use /start to go back to the menu.")
+    lang = get_lang(context)
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(t("cancelled", lang))
+    else:
+        await update.message.reply_text(t("cancelled", lang))
     return ConversationHandler.END
 
 

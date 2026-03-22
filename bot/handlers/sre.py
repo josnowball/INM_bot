@@ -1,5 +1,5 @@
 """
-SRE / MiConsulado appointment booking conversation flow via Telegram.
+SRE / MiConsulado appointment booking conversation — trilingual (EN/ZH/ES).
 """
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -12,112 +12,91 @@ from telegram.ext import (
     filters,
 )
 
+from .i18n import (
+    t, get_lang, proc_name,
+    SRE_PROCEDURES, SRE_OFFICES,
+)
+
 SELECT_PROCEDURE, ENTER_EMAIL, ENTER_PASSWORD, SELECT_OFFICE, CONFIRM = range(5)
 
-SRE_PROCEDURES = {
-    "pasaporte_primera_vez": "Pasaporte — Primera Vez",
-    "pasaporte_renovacion": "Pasaporte — Renovación",
-    "visa_canje": "Canje de Visa",
-    "carta_naturalizacion": "Carta de Naturalización",
-    "apostilla": "Apostilla",
-    "legalizacion": "Legalización de Documentos",
-}
 
-SRE_OFFICES = {
-    "cdmx_tlatelolco": "CDMX — Tlatelolco",
-    "cdmx_polanco": "CDMX — Polanco",
-    "guadalajara": "Guadalajara",
-    "monterrey": "Monterrey",
-    "puebla": "Puebla",
-    "cancun": "Cancún",
-    "merida": "Mérida",
-    "tijuana": "Tijuana",
-    "queretaro": "Querétaro",
-}
-
-
-async def sre_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+def _procedure_keyboard(lang: str):
     keyboard = []
     row = []
-    for key, name in SRE_PROCEDURES.items():
-        row.append(InlineKeyboardButton(name, callback_data=f"sre_proc_{key}"))
+    for key in SRE_PROCEDURES:
+        label = proc_name(SRE_PROCEDURES, key, lang)
+        row.append(InlineKeyboardButton(label, callback_data=f"sre_proc_{key}"))
         if len(row) == 2:
             keyboard.append(row)
             row = []
     if row:
         keyboard.append(row)
-    keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="sre_cancel")])
+    keyboard.append([InlineKeyboardButton(t("btn_cancel", lang), callback_data="sre_cancel")])
+    return InlineKeyboardMarkup(keyboard)
 
-    text = (
-        "🛂 *SRE / MiConsulado Appointment*\n\n"
-        "Select the type of service you need:"
-    )
+
+def _office_keyboard(lang: str):
+    keyboard = []
+    row = []
+    for key in SRE_OFFICES:
+        label = proc_name(SRE_OFFICES, key, lang)
+        row.append(InlineKeyboardButton(label, callback_data=f"sre_office_{key}"))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+    keyboard.append([InlineKeyboardButton(t("btn_cancel", lang), callback_data="sre_cancel")])
+    return InlineKeyboardMarkup(keyboard)
+
+
+async def sre_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = get_lang(context)
+    text = t("sre_title", lang)
+    kb = _procedure_keyboard(lang)
 
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
-            text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
     else:
-        await update.message.reply_text(
-            text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
     return SELECT_PROCEDURE
 
 
 async def select_procedure(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
+    lang = get_lang(context)
 
     procedure_key = query.data.replace("sre_proc_", "")
     context.user_data["sre_procedure"] = procedure_key
 
-    await query.edit_message_text(
-        "🔐 *MiConsulado Login*\n\n"
-        "Please enter your MiConsulado email address.\n\n"
-        "_We do NOT store your credentials. They are used once for this booking and immediately discarded._",
-        parse_mode="Markdown",
-    )
+    await query.edit_message_text(t("sre_enter_email", lang), parse_mode="Markdown")
     return ENTER_EMAIL
 
 
 async def enter_email(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = get_lang(context)
     context.user_data["sre_email"] = update.message.text.strip()
 
-    await update.message.reply_text(
-        "Now enter your MiConsulado password.\n\n"
-        "🔒 _Your password is used once and never stored. "
-        "Delete this message after sending if you'd like._",
-        parse_mode="Markdown",
-    )
+    await update.message.reply_text(t("sre_enter_password", lang), parse_mode="Markdown")
     return ENTER_PASSWORD
 
 
 async def enter_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = get_lang(context)
     context.user_data["sre_password"] = update.message.text.strip()
 
-    # Try to delete the password message for security
+    # Delete the password message for security
     try:
         await update.message.delete()
     except Exception:
         pass
 
-    keyboard = []
-    row = []
-    for key, name in SRE_OFFICES.items():
-        row.append(InlineKeyboardButton(name, callback_data=f"sre_office_{key}"))
-        if len(row) == 2:
-            keyboard.append(row)
-            row = []
-    if row:
-        keyboard.append(row)
-    keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="sre_cancel")])
-
     await update.message.reply_text(
-        "✅ Credentials received (not stored).\n\n"
-        "Select your preferred SRE office:",
+        t("sre_credentials_received", lang),
         parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=_office_keyboard(lang),
     )
     return SELECT_OFFICE
 
@@ -125,61 +104,47 @@ async def enter_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def select_office(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
+    lang = get_lang(context)
 
     office_key = query.data.replace("sre_office_", "")
     context.user_data["sre_office"] = office_key
 
-    proc_name = SRE_PROCEDURES.get(context.user_data["sre_procedure"], "")
-    office_name = SRE_OFFICES.get(office_key, "")
+    procedure = proc_name(SRE_PROCEDURES, context.user_data["sre_procedure"], lang)
+    office = proc_name(SRE_OFFICES, office_key, lang)
+    email = context.user_data.get("sre_email", "")
 
-    keyboard = [
+    keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("✅ Book Now", callback_data="sre_confirm"),
-            InlineKeyboardButton("❌ Cancel", callback_data="sre_cancel"),
+            InlineKeyboardButton(t("btn_book_now", lang), callback_data="sre_confirm"),
+            InlineKeyboardButton(t("btn_cancel", lang), callback_data="sre_cancel"),
         ]
-    ]
+    ])
 
-    await query.edit_message_text(
-        f"🛂 *Confirm SRE Appointment*\n\n"
-        f"*Service:* {proc_name}\n"
-        f"*Office:* {office_name}\n"
-        f"*MiConsulado:* {context.user_data.get('sre_email', '')}\n\n"
-        f"Ready to book?",
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-    )
+    text = t("sre_confirm", lang).format(procedure=procedure, office=office, email=email)
+    await query.edit_message_text(text, parse_mode="Markdown", reply_markup=keyboard)
     return CONFIRM
 
 
 async def confirm_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
+    lang = get_lang(context)
 
-    proc = context.user_data.get("sre_procedure")
-    office = context.user_data.get("sre_office")
+    proc_key = context.user_data.get("sre_procedure")
+    office_key = context.user_data.get("sre_office")
+    procedure = proc_name(SRE_PROCEDURES, proc_key, lang)
+    office = proc_name(SRE_OFFICES, office_key, lang)
 
-    await query.edit_message_text(
-        "⏳ *Booking in progress...*\n\n"
-        "Logging into MiConsulado and searching for available slots.\n"
-        "This may take 1-2 minutes.",
-        parse_mode="Markdown",
-    )
+    await query.edit_message_text(t("sre_booking_progress", lang), parse_mode="Markdown")
 
-    # TODO: Call the FastAPI SRE booking endpoint
+    # TODO: Call the FastAPI SRE booking endpoint via httpx
     await context.bot.send_message(
         chat_id=query.message.chat_id,
-        text=(
-            "🛂 *Booking submitted!*\n\n"
-            f"*Service:* {SRE_PROCEDURES.get(proc, proc)}\n"
-            f"*Office:* {SRE_OFFICES.get(office, office)}\n"
-            f"*Status:* Pending\n\n"
-            "We'll notify you when the appointment is confirmed.\n"
-            "Check /appointments for status."
-        ),
+        text=t("sre_booking_done", lang).format(procedure=procedure, office=office),
         parse_mode="Markdown",
     )
 
-    # Clear credentials from memory
+    # Clear credentials from memory immediately
     context.user_data.pop("sre_password", None)
     context.user_data.pop("sre_email", None)
 
@@ -187,15 +152,16 @@ async def confirm_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = get_lang(context)
     # Clear any stored credentials
     context.user_data.pop("sre_password", None)
     context.user_data.pop("sre_email", None)
 
     if update.callback_query:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text("Booking cancelled. Use /start for the menu.")
+        await update.callback_query.edit_message_text(t("cancelled", lang))
     else:
-        await update.message.reply_text("Booking cancelled. Use /start for the menu.")
+        await update.message.reply_text(t("cancelled", lang))
     return ConversationHandler.END
 
 

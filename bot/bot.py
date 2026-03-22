@@ -1,5 +1,6 @@
 """
-CitaFácil Telegram Bot — entry point.
+CitaFacil Telegram Bot — entry point.
+Trilingual (EN/ZH/ES) with BotCommand menu.
 
 Usage:
     TELEGRAM_BOT_TOKEN=xxx python bot.py
@@ -7,10 +8,36 @@ Usage:
 
 import os
 import sys
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
-from handlers.start import start, help_command
+from telegram import BotCommand
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+)
+
+from handlers.start import (
+    start,
+    help_command,
+    lang_command,
+    lang_callback,
+    show_lang_picker_callback,
+    profile_callback,
+    appointments_callback,
+)
 from handlers.inm import get_inm_handler
 from handlers.sre import get_sre_handler
+
+
+async def post_init(application):
+    """Set default command menu (Spanish) on startup.
+    Per-user language menus are set when they pick a language."""
+    await application.bot.set_my_commands([
+        BotCommand("start", "Menu principal"),
+        BotCommand("inm", "Agendar cita INM"),
+        BotCommand("sre", "Agendar cita SRE"),
+        BotCommand("lang", "Cambiar idioma / Change language / 更改语言"),
+        BotCommand("help", "Ayuda / Help / 帮助"),
+    ])
 
 
 def main():
@@ -19,48 +46,30 @@ def main():
         print("ERROR: Set TELEGRAM_BOT_TOKEN environment variable")
         sys.exit(1)
 
-    app = ApplicationBuilder().token(token).build()
+    app = (
+        ApplicationBuilder()
+        .token(token)
+        .post_init(post_init)
+        .build()
+    )
 
-    # Commands
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-
-    # Conversation handlers
+    # ── Conversation handlers (must be added before generic callbacks) ──
     app.add_handler(get_inm_handler())
     app.add_handler(get_sre_handler())
 
-    # Generic callback handler for menu buttons
-    app.add_handler(CallbackQueryHandler(handle_menu_callback))
+    # ── Commands ──
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("lang", lang_command))
 
-    print("Bot started. Polling...")
+    # ── Callback queries (language picker, menu buttons) ──
+    app.add_handler(CallbackQueryHandler(lang_callback, pattern="^lang_"))
+    app.add_handler(CallbackQueryHandler(show_lang_picker_callback, pattern="^show_lang_picker$"))
+    app.add_handler(CallbackQueryHandler(profile_callback, pattern="^profile$"))
+    app.add_handler(CallbackQueryHandler(appointments_callback, pattern="^appointments$"))
+
+    print("CitaFacil bot started. Polling...")
     app.run_polling()
-
-
-async def handle_menu_callback(update, context):
-    """Handle menu buttons that aren't part of a conversation."""
-    query = update.callback_query
-    data = query.data
-
-    if data == "profile":
-        await query.answer()
-        await query.edit_message_text(
-            "👤 *Your Profile*\n\n"
-            "To manage your profile, visit the website or use these commands:\n"
-            "• Your profile data is used to auto-fill appointment forms\n"
-            "• Fill it in once, reuse for every booking\n\n"
-            "🌐 Visit the website to complete your profile.",
-            parse_mode="Markdown",
-        )
-    elif data == "appointments":
-        await query.answer()
-        await query.edit_message_text(
-            "📅 *Your Appointments*\n\n"
-            "No appointments yet.\n"
-            "Use /inm or /sre to book one!",
-            parse_mode="Markdown",
-        )
-    else:
-        await query.answer("Unknown action")
 
 
 if __name__ == "__main__":
