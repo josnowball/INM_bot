@@ -1,0 +1,33 @@
+from pydantic_settings import BaseSettings
+from functools import lru_cache
+
+
+class Settings(BaseSettings):
+    # App
+    secret_key: str = "CHANGE-ME"
+    encryption_key: str = "CHANGE-ME"
+    database_url: str = "sqlite:///./data.db"
+    allowed_origins: str = "http://localhost:5173"
+
+    # Telegram
+    telegram_bot_token: str = ""
+
+    # Email
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+
+    # Frontend
+    frontend_url: str = "http://localhost:5173"
+
+    # JWT
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 7
+
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
