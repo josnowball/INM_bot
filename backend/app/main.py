@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import get_settings
 from app.database import engine, Base
 from app.routers.users import router as auth_router, profile_router
-from app.routers.appointments import router as appointments_router
+from app.routers.appointments import router as appointments_router, captcha_router
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -36,6 +36,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(appointments_router)
+app.include_router(captcha_router)
 
 
 @app.get("/api/health")

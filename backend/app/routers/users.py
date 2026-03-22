@@ -6,6 +6,7 @@ from app.models import User, UserProfile, EmailVerification
 from app.schemas import (
     RegisterRequest, LoginRequest, TokenResponse,
     VerifyEmailRequest, ProfileUpdate, ProfileResponse, UserResponse,
+    TelegramRegisterRequest, TelegramLoginRequest,
 )
 from app.auth import hash_password, verify_password, create_access_token, create_refresh_token, get_current_user
 from app.encryption import encrypt, decrypt
@@ -113,6 +114,58 @@ async def resend_verification(
 @router.get("/me", response_model=UserResponse)
 async def get_me(user: User = Depends(get_current_user)):
     return user
+
+
+# --- Telegram-specific Auth ---
+
+@router.post("/telegram-register", response_model=TokenResponse)
+async def telegram_register(req: TelegramRegisterRequest, db: Session = Depends(get_db)):
+    """Register via Telegram bot — links telegram_chat_id to the account."""
+    if db.query(User).filter(User.email == req.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    user = User(
+        email=req.email,
+        hashed_password=hash_password(req.password),
+        full_name=req.full_name,
+        telegram_chat_id=req.telegram_chat_id,
+    )
+    db.add(user)
+    db.flush()
+
+    profile = UserProfile(user_id=user.id)
+    db.add(profile)
+
+    code = generate_code()
+    verification = EmailVerification(
+        user_id=user.id,
+        code=code,
+        expires_at=datetime.utcnow() + timedelta(minutes=15),
+    )
+    db.add(verification)
+    db.commit()
+
+    await send_verification_email(req.email, code)
+
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id),
+    )
+
+
+@router.post("/telegram-login", response_model=TokenResponse)
+async def telegram_login(req: TelegramLoginRequest, db: Session = Depends(get_db)):
+    """Login by Telegram chat_id — for returning users."""
+    user = db.query(User).filter(User.telegram_chat_id == req.telegram_chat_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No account linked to this Telegram")
+
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id),
+    )
 
 
 # --- Profile ---

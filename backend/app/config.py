@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
+    # CAPTCHA
+    captcha_telegram_chat_id: str = ""  # fallback chat for CAPTCHA forwarding
+
+    # Stripe (tip jar — optional)
+    stripe_tip_link: str = ""  # e.g. https://buy.stripe.com/xxx
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

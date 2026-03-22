@@ -315,6 +315,107 @@ STRINGS = {
         "zh": "预约已取消。使用 /start 返回菜单。",
         "es": "Cita cancelada. Usa /start para volver al menu.",
     },
+
+    # ── Registration flow ────────────────────────────────────────────
+    "reg_start": {
+        "en": "📝 *Create Your Account*\n\nPlease enter your email address:",
+        "zh": "📝 *创建账户*\n\n请输入你的邮箱地址：",
+        "es": "📝 *Crea Tu Cuenta*\n\nPor favor ingresa tu correo electronico:",
+    },
+    "reg_password": {
+        "en": "Now create a password (8+ characters).\n\n🔒 _Your message will be deleted for security._",
+        "zh": "现在设置密码（8个字符以上）。\n\n🔒 _为安全起见，你的消息将被删除。_",
+        "es": "Ahora crea una contrasena (8+ caracteres).\n\n🔒 _Tu mensaje sera eliminado por seguridad._",
+    },
+    "reg_verify": {
+        "en": "✅ Account created!\n\nWe sent a 6-digit verification code to *{email}*.\nPlease enter the code:",
+        "zh": "✅ 账户已创建！\n\n我们已向 *{email}* 发送了6位验证码。\n请输入验证码：",
+        "es": "✅ Cuenta creada!\n\nEnviamos un codigo de 6 digitos a *{email}*.\nPor favor ingresa el codigo:",
+    },
+    "reg_profile_name": {
+        "en": "Email verified! Now let's set up your profile.\n\nWhat's your *full name* (as on your passport)?",
+        "zh": "邮箱已验证！现在设置你的资料。\n\n请输入你的*全名*（护照上的名字）：",
+        "es": "Correo verificado! Ahora vamos a completar tu perfil.\n\nCual es tu *nombre completo* (como aparece en tu pasaporte)?",
+    },
+    "reg_profile_nationality": {
+        "en": "What's your *nationality*? (e.g., Chinese, American, Canadian)",
+        "zh": "你的*国籍*是什么？（例如：中国、美国、加拿大）",
+        "es": "Cual es tu *nacionalidad*? (ej: Mexicana, Estadounidense, China)",
+    },
+    "reg_profile_birthdate": {
+        "en": "What's your *date of birth*? (YYYY-MM-DD)",
+        "zh": "你的*出生日期*是什么？（格式：YYYY-MM-DD）",
+        "es": "Cual es tu *fecha de nacimiento*? (YYYY-MM-DD)",
+    },
+    "reg_profile_passport": {
+        "en": "What's your *passport number*?",
+        "zh": "你的*护照号码*是什么？",
+        "es": "Cual es tu *numero de pasaporte*?",
+    },
+    "reg_profile_phone": {
+        "en": "What's your *phone number*? (with country code, e.g. +52...)",
+        "zh": "你的*手机号*是什么？（含国际区号，如 +86...）",
+        "es": "Cual es tu *numero de telefono*? (con codigo de pais, ej +52...)",
+    },
+    "reg_done": {
+        "en": "🎉 *Profile complete!* You're ready to book appointments.\n\nUse /inm or /sre to get started.",
+        "zh": "🎉 *资料已完成！*你现在可以预约了。\n\n使用 /inm 或 /sre 开始。",
+        "es": "🎉 *Perfil completo!* Ya puedes agendar citas.\n\nUsa /inm o /sre para comenzar.",
+    },
+    "reg_error": {
+        "en": "❌ Registration failed: {error}\n\nPlease try again with /start.",
+        "zh": "❌ 注册失败：{error}\n\n请使用 /start 重试。",
+        "es": "❌ Registro fallido: {error}\n\nIntenta de nuevo con /start.",
+    },
+    "already_registered": {
+        "en": "You already have an account! Use /inm or /sre to book.",
+        "zh": "你已经有账户了！使用 /inm 或 /sre 预约。",
+        "es": "Ya tienes cuenta! Usa /inm o /sre para agendar.",
+    },
+    "need_account": {
+        "en": "⚠️ You need an account to book. Tap the button below to register.",
+        "zh": "⚠️ 你需要先注册才能预约。点击下方按钮注册。",
+        "es": "⚠️ Necesitas una cuenta para agendar. Toca el boton de abajo para registrarte.",
+    },
+    "btn_register": {
+        "en": "📝 Create Account",
+        "zh": "📝 注册账户",
+        "es": "📝 Crear Cuenta",
+    },
+
+    # ── Slot selection ────────────────────────────────────────────────
+    "slots_found": {
+        "en": "📅 *Available Slots*\n\nWe found {count} available time slots. Pick one:",
+        "zh": "📅 *可用时间*\n\n找到了 {count} 个可用时间。请选择：",
+        "es": "📅 *Horarios Disponibles*\n\nEncontramos {count} horarios disponibles. Elige uno:",
+    },
+    "no_slots": {
+        "en": "😔 No available slots found for this office. Try a different office or check back later.",
+        "zh": "😔 该办事处暂无可用时间。请尝试其他办事处或稍后再试。",
+        "es": "😔 No se encontraron horarios disponibles. Intenta otra oficina o vuelve mas tarde.",
+    },
+    "slot_selected": {
+        "en": "✅ Slot selected: *{date}* at *{time}*\n\nConfirming your appointment...",
+        "zh": "✅ 已选择：*{date}* *{time}*\n\n正在确认预约...",
+        "es": "✅ Horario seleccionado: *{date}* a las *{time}*\n\nConfirmando tu cita...",
+    },
+
+    # ── Booking with API ──────────────────────────────────────────────
+    "booking_checking_slots": {
+        "en": "🔍 *Searching for available slots...*\n\nLogging in and navigating the booking site.\nThis may take 1-2 minutes. We'll show you the available times.",
+        "zh": "🔍 *正在搜索可用时间...*\n\n正在登录并浏览预约网站。\n可能需要 1-2 分钟。我们会展示可用时间。",
+        "es": "🔍 *Buscando horarios disponibles...*\n\nIniciando sesion y navegando el sitio de citas.\nEsto puede tomar 1-2 minutos. Te mostraremos los horarios.",
+    },
+    "booking_submitted": {
+        "en": "⏳ *Booking submitted!*\n\nWe'll send you a notification when it's confirmed (or if there's an issue).\n\nCheck /start for status.",
+        "zh": "⏳ *预约已提交！*\n\n确认后我们会发通知（如有问题也会通知你）。\n\n使用 /start 查看状态。",
+        "es": "⏳ *Cita enviada!*\n\nTe enviaremos una notificacion cuando se confirme (o si hay un problema).\n\nUsa /start para ver el estado.",
+    },
+    "booking_error": {
+        "en": "❌ *Booking failed:* {error}\n\nPlease try again.",
+        "zh": "❌ *预约失败：* {error}\n\n请重试。",
+        "es": "❌ *Cita fallida:* {error}\n\nPor favor intenta de nuevo.",
+    },
 }
 
 # ── Procedure / Office names (trilingual) ─────────────────────────────

@@ -1,7 +1,8 @@
 """
-INM appointment booking conversation — trilingual (EN/ZH/ES).
+INM appointment booking conversation — trilingual, wired to backend API.
 """
 
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ContextTypes,
@@ -19,7 +20,6 @@ SELECT_PROCEDURE, SELECT_OFFICE, CONFIRM = range(3)
 
 
 def _procedure_keyboard(lang: str):
-    """Build procedure selection keyboard."""
     keyboard = []
     row = []
     for key in INM_PROCEDURES:
@@ -35,7 +35,6 @@ def _procedure_keyboard(lang: str):
 
 
 def _office_keyboard(lang: str):
-    """Build office selection keyboard."""
     keyboard = []
     row = []
     for key in INM_OFFICES:
@@ -52,6 +51,20 @@ def _office_keyboard(lang: str):
 
 async def inm_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     lang = get_lang(context)
+
+    # Check if user has account
+    if not context.user_data.get("auth_token"):
+        text = t("need_account", lang)
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(t("btn_register", lang), callback_data="register_start")]
+        ])
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
+        else:
+            await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+        return ConversationHandler.END
+
     text = t("inm_title", lang)
     kb = _procedure_keyboard(lang)
 
@@ -105,6 +118,7 @@ async def select_office(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
 
 async def confirm_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """User confirmed — call backend API to book INM appointment."""
     query = update.callback_query
     await query.answer()
     lang = get_lang(context)
@@ -113,16 +127,64 @@ async def confirm_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     office_key = context.user_data.get("inm_office")
     procedure = proc_name(INM_PROCEDURES, proc_key, lang)
     office = proc_name(INM_OFFICES, office_key, lang)
+    token = context.user_data.get("auth_token")
+    api = context.bot_data.get("api")
 
     await query.edit_message_text(t("inm_booking_progress", lang), parse_mode="Markdown")
 
-    # TODO: Call the FastAPI booking endpoint via httpx
-    await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text=t("inm_booking_done", lang).format(procedure=procedure, office=office),
-        parse_mode="Markdown",
-    )
+    try:
+        # Submit booking to backend
+        result = await api.book_inm(
+            token=token,
+            procedure_type=proc_key,
+            preferred_office=office_key,
+        )
+        appointment_id = result["id"]
+
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=t("booking_submitted", lang),
+            parse_mode="Markdown",
+        )
+
+        # Start background polling for status
+        asyncio.create_task(
+            _poll_and_notify(context, query.message.chat_id, api, token, appointment_id, lang)
+        )
+
+    except Exception as e:
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=t("booking_error", lang).format(error=str(e)),
+            parse_mode="Markdown",
+        )
+
     return ConversationHandler.END
+
+
+async def _poll_and_notify(context, chat_id, api, token, appointment_id, lang):
+    """Background task: poll appointment status and notify user."""
+    try:
+        result = await api.poll_appointment_status(token, appointment_id, max_wait=300, interval=10)
+
+        if result["status"] == "booked":
+            text = t("inm_booking_done", lang).format(
+                procedure=result.get("procedure_type", ""),
+                office=result.get("office_location", ""),
+            )
+            if result.get("confirmation_code"):
+                text += f"\n\n*Confirmation:* `{result['confirmation_code']}`"
+        elif result["status"] == "failed":
+            text = t("booking_error", lang).format(error=result.get("error_message", "Unknown error"))
+        else:
+            text = t("booking_submitted", lang)  # Still processing
+
+        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+    except Exception as e:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Error checking booking status: {e}",
+        )
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

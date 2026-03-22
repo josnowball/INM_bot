@@ -117,3 +117,49 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- Telegram Auth ---
+
+class TelegramRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+    telegram_chat_id: str
+
+
+class TelegramLoginRequest(BaseModel):
+    telegram_chat_id: str
+
+
+# --- Slot Selection ---
+
+class AvailableSlot(BaseModel):
+    date: str  # YYYY-MM-DD
+    time: str  # HH:MM
+    availability: str  # "high", "medium", "low"
+
+
+class SlotCheckResponse(BaseModel):
+    session_id: str
+    slots: list[AvailableSlot]
+    expires_in_seconds: int = 300
+
+
+class SlotConfirmRequest(BaseModel):
+    session_id: str
+    date: str
+    time: str
+
+
+# --- CAPTCHA ---
+
+class CaptchaPendingResponse(BaseModel):
+    captcha_id: str
+    image_url: str  # base64 data URL or path
+    captcha_type: str  # "image", "recaptcha_v2", etc.
+
+
+class CaptchaSolveRequest(BaseModel):
+    captcha_id: str
+    solution: str
